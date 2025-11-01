@@ -1,33 +1,28 @@
-import { useState, useEffect } from 'react'; // <-- Impor useEffect
+import { useState, useEffect } from 'react';
+import axios from 'axios'; // <-- 1. Impor axios
 import './App.css';
 
 // Tentukan URL API backend Anda
 const API_URL = 'http://localhost:4000/tasks';
 
 function App() {
-  // --- STATE ---
-  // State tasks sekarang dimulai dengan array kosong
   const [tasks, setTasks] = useState([]);
-
-  // State lain tetap sama
   const [inputText, setInputText] = useState('');
   const [editingId, setEditingId] = useState(null);
 
   // --- EFEK (READ) ---
-  /**
-   * [READ]
-   * Gunakan useEffect untuk mengambil data dari API saat komponen dimuat.
-   */
   useEffect(() => {
     fetchTasks();
-  }, []); // Array dependensi kosong berarti ini hanya berjalan sekali
+  }, []);
 
-  // Fungsi untuk mengambil data
+  /**
+   * [READ] - Menggunakan axios.get
+   * Data respons ada di 'response.data'
+   */
   const fetchTasks = async () => {
     try {
-      const response = await fetch(API_URL);
-      const data = await response.json();
-      setTasks(data); // Set state dengan data dari server
+      const response = await axios.get(API_URL);
+      setTasks(response.data); // <-- 2. Langsung dapat data (tidak perlu .json())
     } catch (error) {
       console.error('Gagal mengambil tugas:', error);
     }
@@ -35,10 +30,6 @@ function App() {
 
   // --- HANDLERS (LOGIKA CRUD) ---
 
-  /**
-   * Menangani submit form (CREATE dan UPDATE)
-   * Sekarang menjadi fungsi 'async'
-   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!inputText.trim()) return;
@@ -46,68 +37,57 @@ function App() {
     if (editingId !== null) {
       // --- UPDATE ---
       try {
-        const response = await fetch(`${API_URL}/${editingId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: inputText }),
+        /**
+         * [UPDATE] - Menggunakan axios.put
+         * Parameter kedua adalah data (body)
+         */
+        const response = await axios.put(`${API_URL}/${editingId}`, {
+          text: inputText, // <-- 3. Axios otomatis 'stringify' jadi JSON
         });
-        const updatedTask = await response.json();
+        const updatedTask = response.data; // <-- Langsung dapat data
 
-        // Update state lokal
         setTasks(
           tasks.map((task) =>
             task.id === editingId ? updatedTask : task
           )
         );
         setEditingId(null);
-
       } catch (error) {
         console.error('Gagal mengupdate tugas:', error);
       }
     } else {
       // --- CREATE ---
       try {
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: inputText }),
+        /**
+         * [CREATE] - Menggunakan axios.post
+         * Parameter kedua adalah data (body)
+         */
+        const response = await axios.post(API_URL, {
+          text: inputText, // <-- 3. Axios otomatis 'stringify' jadi JSON
         });
-        const newTask = await response.json(); // Dapatkan tugas baru (dgn ID) dari server
+        const newTask = response.data; // <-- Langsung dapat data
 
-        // Tambahkan ke state lokal
         setTasks([...tasks, newTask]);
-
       } catch (error) {
         console.error('Gagal menambah tugas:', error);
       }
     }
-
     setInputText('');
   };
 
-  /**
-   * Menyiapkan form untuk mode UPDATE.
-   * (Tidak perlu diubah, ini murni logika state lokal)
-   */
   const handleEdit = (task) => {
     setEditingId(task.id);
     setInputText(task.text);
   };
 
   /**
-   * [DELETE]
-   * Menghapus tugas berdasarkan ID.
-   * Sekarang menjadi fungsi 'async'
+   * [DELETE] - Menggunakan axios.delete
    */
   const handleDelete = async (id) => {
     if (window.confirm('Apakah Anda yakin ingin menghapus tugas ini?')) {
       try {
-        // Kirim request DELETE ke server
-        await fetch(`${API_URL}/${id}`, {
-          method: 'DELETE',
-        });
+        await axios.delete(`${API_URL}/${id}`); // <-- 4. Sintaks delete sederhana
 
-        // Jika berhasil, update state lokal
         setTasks(tasks.filter((task) => task.id !== id));
 
         if (id === editingId) {
@@ -120,22 +100,16 @@ function App() {
     }
   };
 
-  /**
-   * Membatalkan mode edit.
-   * (Tidak perlu diubah)
-   */
   const handleCancelEdit = () => {
     setEditingId(null);
     setInputText('');
   };
 
   // --- RENDER (VIEW) ---
-  // Bagian JSX (return) sama persis dengan kode Anda sebelumnya!
-  // Tidak perlu ada perubahan di sini.
+  // Bagian JSX (return) tidak ada perubahan sama sekali
   return (
     <div className="app-container">
       <h1>Daftar Tugas (Full Stack CRUD)</h1>
-
       <form onSubmit={handleSubmit} className="task-form">
         <input
           type="text"
@@ -152,15 +126,12 @@ function App() {
           </button>
         )}
       </form>
-
       <ul className="task-list">
-        {/* Tambahkan pesan jika tidak ada tugas */}
         {tasks.length === 0 && (
           <p style={{ textAlign: 'center', color: '#888' }}>
             Belum ada tugas...
           </p>
         )}
-
         {tasks.map((task) => (
           <li key={task.id}>
             <span>{task.text}</span>
