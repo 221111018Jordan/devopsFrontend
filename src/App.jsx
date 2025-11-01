@@ -1,83 +1,128 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // <-- Impor useEffect
 import './App.css';
+
+// Tentukan URL API backend Anda
+const API_URL = 'http://localhost:4000/tasks';
 
 function App() {
   // --- STATE ---
-  // State untuk menyimpan daftar tugas
-  const [tasks, setTasks] = useState([
-    { id: 1, text: 'Belajar React' },
-    { id: 2, text: 'Mengerjakan Proyek CRUD' },
-  ]);
+  // State tasks sekarang dimulai dengan array kosong
+  const [tasks, setTasks] = useState([]);
 
-  // State untuk menyimpan input dari form
+  // State lain tetap sama
   const [inputText, setInputText] = useState('');
-
-  // State untuk melacak ID tugas yang sedang diedit
-  // null berarti kita sedang dalam mode "Tambah" (Create)
-  // angka berarti kita sedang dalam mode "Edit" (Update)
   const [editingId, setEditingId] = useState(null);
+
+  // --- EFEK (READ) ---
+  /**
+   * [READ]
+   * Gunakan useEffect untuk mengambil data dari API saat komponen dimuat.
+   */
+  useEffect(() => {
+    fetchTasks();
+  }, []); // Array dependensi kosong berarti ini hanya berjalan sekali
+
+  // Fungsi untuk mengambil data
+  const fetchTasks = async () => {
+    try {
+      const response = await fetch(API_URL);
+      const data = await response.json();
+      setTasks(data); // Set state dengan data dari server
+    } catch (error) {
+      console.error('Gagal mengambil tugas:', error);
+    }
+  };
 
   // --- HANDLERS (LOGIKA CRUD) ---
 
   /**
-   * Menangani submit form.
-   * Ini akan berfungsi sebagai CREATE atau UPDATE tergantung pada state 'editingId'.
+   * Menangani submit form (CREATE dan UPDATE)
+   * Sekarang menjadi fungsi 'async'
    */
-  const handleSubmit = (e) => {
-    e.preventDefault(); // Mencegah refresh halaman
-    if (!inputText.trim()) return; // Jangan tambahkan jika input kosong
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!inputText.trim()) return;
 
     if (editingId !== null) {
       // --- UPDATE ---
-      // Jika 'editingId' ada, kita sedang mengedit.
-      setTasks(
-        tasks.map((task) =>
-          task.id === editingId ? { ...task, text: inputText } : task
-        )
-      );
-      // Kembalikan ke mode "Tambah"
-      setEditingId(null);
+      try {
+        const response = await fetch(`${API_URL}/${editingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: inputText }),
+        });
+        const updatedTask = await response.json();
+
+        // Update state lokal
+        setTasks(
+          tasks.map((task) =>
+            task.id === editingId ? updatedTask : task
+          )
+        );
+        setEditingId(null);
+
+      } catch (error) {
+        console.error('Gagal mengupdate tugas:', error);
+      }
     } else {
       // --- CREATE ---
-      // Jika 'editingId' null, kita sedang menambah tugas baru.
-      const newId = tasks.length > 0 ? Math.max(...tasks.map(t => t.id)) + 1 : 1;
-      const newTask = { id: newId, text: inputText };
-      setTasks([...tasks, newTask]);
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: inputText }),
+        });
+        const newTask = await response.json(); // Dapatkan tugas baru (dgn ID) dari server
+
+        // Tambahkan ke state lokal
+        setTasks([...tasks, newTask]);
+
+      } catch (error) {
+        console.error('Gagal menambah tugas:', error);
+      }
     }
 
-    // Bersihkan input setelah submit
     setInputText('');
   };
 
   /**
    * Menyiapkan form untuk mode UPDATE.
+   * (Tidak perlu diubah, ini murni logika state lokal)
    */
   const handleEdit = (task) => {
-    // Set 'editingId' ke ID tugas yang dipilih
     setEditingId(task.id);
-    // Isi form input dengan teks tugas yang ada
     setInputText(task.text);
   };
 
   /**
+   * [DELETE]
    * Menghapus tugas berdasarkan ID.
-   * Ini adalah operasi DELETE.
+   * Sekarang menjadi fungsi 'async'
    */
-  const handleDelete = (id) => {
-    // Konfirmasi sebelum menghapus
+  const handleDelete = async (id) => {
     if (window.confirm('Apakah Anda yakin ingin menghapus tugas ini?')) {
-      setTasks(tasks.filter((task) => task.id !== id));
-      
-      // Jika tugas yang dihapus adalah yang sedang diedit, reset form
-      if (id === editingId) {
-        setEditingId(null);
-        setInputText('');
+      try {
+        // Kirim request DELETE ke server
+        await fetch(`${API_URL}/${id}`, {
+          method: 'DELETE',
+        });
+
+        // Jika berhasil, update state lokal
+        setTasks(tasks.filter((task) => task.id !== id));
+
+        if (id === editingId) {
+          setEditingId(null);
+          setInputText('');
+        }
+      } catch (error) {
+        console.error('Gagal menghapus tugas:', error);
       }
     }
   };
 
   /**
    * Membatalkan mode edit.
+   * (Tidak perlu diubah)
    */
   const handleCancelEdit = () => {
     setEditingId(null);
@@ -85,11 +130,12 @@ function App() {
   };
 
   // --- RENDER (VIEW) ---
+  // Bagian JSX (return) sama persis dengan kode Anda sebelumnya!
+  // Tidak perlu ada perubahan di sini.
   return (
     <div className="app-container">
-      <h1>Daftar Tugas (CRUD Sederhana)</h1>
+      <h1>Daftar Tugas (Full Stack CRUD)</h1>
 
-      {/* Form untuk CREATE dan UPDATE */}
       <form onSubmit={handleSubmit} className="task-form">
         <input
           type="text"
@@ -100,7 +146,6 @@ function App() {
         <button type="submit">
           {editingId !== null ? 'Update' : 'Tambah'}
         </button>
-        {/* Tampilkan tombol "Batal" hanya saat mode edit */}
         {editingId !== null && (
           <button type="button" onClick={handleCancelEdit} className="cancel-btn">
             Batal
@@ -108,17 +153,21 @@ function App() {
         )}
       </form>
 
-      {/* Daftar Tugas (Operasi READ) */}
       <ul className="task-list">
+        {/* Tambahkan pesan jika tidak ada tugas */}
+        {tasks.length === 0 && (
+          <p style={{ textAlign: 'center', color: '#888' }}>
+            Belum ada tugas...
+          </p>
+        )}
+
         {tasks.map((task) => (
           <li key={task.id}>
             <span>{task.text}</span>
             <div className="task-buttons">
-              {/* Tombol untuk masuk mode UPDATE */}
               <button onClick={() => handleEdit(task)} className="edit-btn">
                 Edit
               </button>
-              {/* Tombol untuk DELETE */}
               <button onClick={() => handleDelete(task.id)} className="delete-btn">
                 Hapus
               </button>
