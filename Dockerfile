@@ -1,4 +1,3 @@
-# Dockerfile FE
 # --- Tahap 1: Build ---
 FROM node:22-alpine AS builder
 
